@@ -23,23 +23,34 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease --stacktrace
 
-      - name: Sign APK with Native Apksigner
+      - name: Create Keystore and Sign APK
         run: |
-          echo "${{ secrets.MY_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+          # ساخت یک کلید اختصاصی پایدار
+          keytool -genkeypair -v \
+            -keystore my-release-key.jks \
+            -alias "asha-key" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass "AshaSecurePass123" \
+            -keypass "AshaSecurePass123" \
+            -dname "CN=AshaScanner, OU=Security, O=Asha, L=Tehran, ST=Tehran, C=IR"
           
-          # پیدا کردن جدیدترین apksigner در مخزن اندروید
+          # پیدا کردن جدیدترین apksigner
           APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
           
-          # پیدا کردن فایل خروجی و امضا کردن آن
+          # پیدا کردن فایل خروجی خام
           APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
-          $APKSIGNER sign --ks release.keystore \
-            --ks-key-alias "${{ secrets.my-key-alias }}" \
-            --ks-pass "pass:${{ secrets.MY_KEY_PASSWORD }}" \
-            --key-pass "pass:${{ secrets.MY_KEY_PASSWORD }}" \
+          
+          # امضای APK
+          $APKSIGNER sign --ks my-release-key.jks \
+            --ks-key-alias "asha-key" \
+            --ks-pass "pass:AshaSecurePass123" \
+            --key-pass "pass:AshaSecurePass123" \
             --out app/build/outputs/apk/release/asha-scanner-signed.apk \
             "$APK_PATH"
             
-          # تایید امضای معتبر
+          # بررسی صحت امضا
           $APKSIGNER verify app/build/outputs/apk/release/asha-scanner-signed.apk
 
       - name: Upload Signed APK
