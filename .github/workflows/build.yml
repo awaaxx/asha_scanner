@@ -23,17 +23,27 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease --stacktrace
 
-      - name: Sign APK
-        uses: ralfir/android-release-signer@v1
-        with:
-          releaseDirectory: app/build/outputs/apk/release
-          signingKeyBase64: ${{ secrets.MY_KEYSTORE_BASE64 }}
-          alias: ${{ secrets.my-key-alias }}
-          keyStorePassword: ${{ secrets.MY_KEY_PASSWORD }}
-          keyPassword: ${{ secrets.MY_KEY_PASSWORD }}
+      - name: Sign APK with Native Apksigner
+        run: |
+          echo "${{ secrets.MY_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+          
+          # پیدا کردن جدیدترین apksigner در مخزن اندروید
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
+          
+          # پیدا کردن فایل خروجی و امضا کردن آن
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          $APKSIGNER sign --ks release.keystore \
+            --ks-key-alias "${{ secrets.my-key-alias }}" \
+            --ks-pass "pass:${{ secrets.MY_KEY_PASSWORD }}" \
+            --key-pass "pass:${{ secrets.MY_KEY_PASSWORD }}" \
+            --out app/build/outputs/apk/release/asha-scanner-signed.apk \
+            "$APK_PATH"
+            
+          # تایید امضای معتبر
+          $APKSIGNER verify app/build/outputs/apk/release/asha-scanner-signed.apk
 
       - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
           name: asha-scanner-signed
-          path: app/build/outputs/apk/release/*-signed.apk
+          path: app/build/outputs/apk/release/asha-scanner-signed.apk
