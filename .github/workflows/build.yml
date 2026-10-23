@@ -1,4 +1,4 @@
-name: Build APK on Mobile
+name: Build and Sign Release APK
 
 on:
   workflow_dispatch:
@@ -17,14 +17,23 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Make Gradlew Executable
+      - name: Grant Execute Permission for Gradlew
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --stacktrace
 
-      - name: Upload APK
+      - name: Sign APK
+        uses: ralfir/android-release-signer@v1
+        with:
+          releaseDirectory: app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.MY_KEYSTORE_BASE64 }}
+          alias: ${{ secrets.my-key-alias }}
+          keyStorePassword: ${{ secrets.MY_KEY_PASSWORD }}
+          keyPassword: ${{ secrets.MY_KEY_PASSWORD }}
+
+      - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: asha-scanner-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: asha-scanner-signed
+          path: app/build/outputs/apk/release/*-signed.apk
